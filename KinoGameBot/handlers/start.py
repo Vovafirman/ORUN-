@@ -13,7 +13,7 @@ async def start(message: types.Message):
     db.add_user(user.id, user.username, user.first_name, user.last_name)
 
     welcome_text = (
-        f"🎬 Привет, {user.first_name}!\n\n"
+        f"🎬 Салам, {user.first_name}!\n\n"
         "Добро пожаловать в магазин мерча **Центр Кино**! 🎥\n\n"
         "У нас вы найдете:\n"
         "• 👕 Стильные футболки с уникальными принтами\n"
