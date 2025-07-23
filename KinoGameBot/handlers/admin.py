@@ -3,6 +3,9 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from config import ADMIN_IDS
 from database import Database
 
+# Storage for pending tracking links
+link_requests = {}
+
 db = Database()
 
 async def admin_panel(message: types.Message):
@@ -138,8 +141,46 @@ async def confirm_payment(callback_query: types.CallbackQuery):
     
     order_id = callback_query.data.replace('confirm_payment_', '')
     db.update_payment_status(order_id, 'paid')
-    
+
+    # Уведомляем пользователя
+    order = db.get_order(order_id)
+    if order:
+        user_id = db.get_user_id(order[1])
+        if user_id:
+            try:
+                await callback_query.bot.send_message(
+                    user_id,
+                    f"✅ Оплата по заказу #{order_id} подтверждена."
+                )
+            except Exception:
+                pass
+
     await callback_query.answer("✅ Платеж подтвержден", show_alert=True)
+
+async def reject_payment(callback_query: types.CallbackQuery):
+    """Mark payment as failed."""
+    if callback_query.from_user.id not in ADMIN_IDS:
+        await callback_query.answer("❌ Нет доступа")
+        return
+
+    await callback_query.answer()
+
+    order_id = callback_query.data.replace('reject_payment_', '')
+    db.update_payment_status(order_id, 'failed')
+
+    order = db.get_order(order_id)
+    if order:
+        user_id = db.get_user_id(order[1])
+        if user_id:
+            try:
+                await callback_query.bot.send_message(
+                    user_id,
+                    f"❌ Оплата по заказу #{order_id} не подтверждена. Свяжитесь с поддержкой."
+                )
+            except Exception:
+                pass
+
+    await callback_query.answer("❌ Оплата отклонена", show_alert=True)
 
 async def mark_shipped(callback_query: types.CallbackQuery):
     """Mark order as shipped"""
@@ -181,40 +222,54 @@ async def cancel_order(callback_query: types.CallbackQuery):
     await callback_query.answer("✅ Заказ отменен", show_alert=True)
 
 async def send_link(callback_query: types.CallbackQuery, bot):
-    """Send tracking link to customer"""
+    """Request a tracking link from admin and forward it to the customer."""
     if callback_query.from_user.id not in ADMIN_IDS:
         await callback_query.answer("❌ Нет доступа")
         return
-    
+
     await callback_query.answer()
-    
+
     order_id = callback_query.data.replace('send_link_', '')
-    
-    # For demo purposes, use a sample tracking link
-    tracking_link = f"https://track.example.com/{order_id}"
-    
-    # Add tracking link to database
-    db.add_tracking_link(order_id, tracking_link)
-    
-    # Get order details to send to customer
+    link_requests[callback_query.from_user.id] = order_id
+
+    await callback_query.message.answer(
+        "Отправьте ссылку или сообщение для покупателя в следующем сообщении."
+    )
+
+async def process_link_message(message: types.Message, bot):
+    """Обрабатывает сообщение администратора с трекинг-ссылкой."""
+    order_id = link_requests.pop(message.from_user.id, None)
+    if not order_id:
+        return
+
     order = db.get_order(order_id)
-    if order:
-        customer_text = (
-            f"📦 **ВАША ПОСЫЛКА ОТПРАВЛЕНА!**\n\n"
-            f"Заказ #{order_id} передан в службу доставки.\n\n"
-            f"🔗 Отследить посылку: {tracking_link}\n\n"
-            f"Ожидайте доставку в ближайшие дни!"
-        )
-        
-        # Here you would send to the actual customer
-        # For demo, just show confirmation to admin
-        await callback_query.answer("✅ Ссылка отправлена покупателю", show_alert=True)
+    if not order:
+        await message.answer("❌ Заказ не найден")
+        return
+
+    user_id = db.get_user_id(order[1])
+    if not user_id:
+        await message.answer("❌ Покупатель не найден")
+        return
+
+    # Сохраняем ссылку в базе как текст сообщения
+    if message.text:
+        db.add_tracking_link(order_id, message.text)
+
+    try:
+        await bot.copy_message(user_id, message.chat.id, message.message_id)
+        await message.answer("✅ Ссылка отправлена")
+    except Exception:
+        await message.answer("❌ Не удалось отправить сообщение покупателю")
 
 def get_admin_order_keyboard(order_id):
     """Get keyboard for order management"""
     keyboard = InlineKeyboardMarkup()
     keyboard.add(
         InlineKeyboardButton("✅ Подтвердить оплату", callback_data=f"confirm_payment_{order_id}"),
+        InlineKeyboardButton("❌ Оплата не пришла", callback_data=f"reject_payment_{order_id}")
+    )
+    keyboard.add(
         InlineKeyboardButton("🚚 Отправлен", callback_data=f"mark_shipped_{order_id}")
     )
     keyboard.add(
@@ -225,3 +280,4 @@ def get_admin_order_keyboard(order_id):
         InlineKeyboardButton("🔗 Отправить ссылку", callback_data=f"send_link_{order_id}")
     )
     return keyboard
+

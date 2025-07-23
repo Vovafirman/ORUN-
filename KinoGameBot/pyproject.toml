@@ -1,6 +1,8 @@
 [project]
-name = "repl-nix-workspace"
+name = "kino-merch-bot"
 version = "0.1.0"
-description = "Add your description here"
+description = "Telegram bot for selling merch"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "aiogram>=3.0.0"
+]

@@ -201,6 +201,16 @@ class Database:
         conn.commit()
         conn.close()
         logger.info(f"Order #{order_id} payment status updated to {payment_status}")
+
+    def get_user_id(self, username):
+        """Return Telegram user id by username."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        cursor.execute('SELECT id FROM users WHERE username = ?', (username,))
+        result = cursor.fetchone()
+        conn.close()
+        return result[0] if result else None
     
     def add_tracking_link(self, order_id, tracking_link):
         """Add tracking link to order"""

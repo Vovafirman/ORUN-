@@ -36,8 +36,8 @@ from handlers.orders import my_orders
 from handlers.game import game
 from handlers.admin import (
     admin_panel, admin_orders, admin_stats, manage_order,
-    confirm_payment, mark_shipped, mark_delivered, cancel_order,
-    send_link
+    confirm_payment, reject_payment, mark_shipped, mark_delivered,
+    cancel_order, send_link, process_link_message, link_requests
 )
 from handlers.help import help_menu
 from keyboards.inline import get_back_to_main_keyboard, get_admin_order_keyboard
@@ -210,6 +210,11 @@ async def handle_delivery_address_msg(message: types.Message):
         await handle_delivery_address(message, user_state)
     elif 'checkout' in user_state:
         await handle_cart_delivery_address(message, user_state)
+
+
+@dp.message(lambda m: m.from_user.id in link_requests)
+async def handle_admin_link_message(message: types.Message):
+    await process_link_message(message, bot)
 
 
 async def handle_cart_delivery_address(message: types.Message, user_state):
@@ -428,6 +433,11 @@ async def handle_admin_stats(callback_query: types.CallbackQuery):
 @dp.callback_query(F.data.startswith('confirm_payment_'))
 async def handle_confirm_payment_cb(callback_query: types.CallbackQuery):
     await confirm_payment(callback_query)
+
+
+@dp.callback_query(F.data.startswith('reject_payment_'))
+async def handle_reject_payment_cb(callback_query: types.CallbackQuery):
+    await reject_payment(callback_query)
 
 
 @dp.callback_query(F.data.startswith('mark_shipped_'))
