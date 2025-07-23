@@ -408,24 +408,28 @@ async def payment_done(callback_query: types.CallbackQuery):
     await callback_query.answer()
     
     order_id = callback_query.data.replace('payment_done_', '')
-    
-    # Update order status to paid
-    db.update_payment_status(order_id, 'paid')
-    
-    # Notify admins about payment
-    admin_text = f"💰 **ПЛАТЕЖ ПОДТВЕРЖДЕН**\n\nЗаказ #{order_id} оплачен покупателем."
-    
+
+    # Notify admins about payment request
+    admin_text = (
+        f"💰 Пользователь @{callback_query.from_user.username} сообщил об оплате заказа #{order_id}.\n"
+        "Подтвердить оплату?"
+    )
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ Оплата пришла", callback_data=f"confirm_payment_{order_id}"),
+            InlineKeyboardButton(text="❌ Оплата не пришла", callback_data=f"reject_payment_{order_id}")
+        ],
+        [InlineKeyboardButton(text="🔗 Отправить ссылку", callback_data=f"send_link_{order_id}")]
+    ])
     for admin_id in ADMIN_IDS:
         try:
-            await callback_query.bot.send_message(admin_id, admin_text, parse_mode='Markdown')
-        except:
+            await callback_query.bot.send_message(admin_id, admin_text, reply_markup=keyboard)
+        except Exception:
             pass
     
     text = (
-        f"💚 **ПЛАТЕЖ ПОДТВЕРЖДЕН!**\n\n"
-        f"Ваш заказ #{order_id} принят в обработку.\n"
-        f"Мы свяжемся с вами в ближайшее время.\n\n"
-        f"Спасибо за покупку! 🎬"
+        "Спасибо! Сообщение об оплате отправлено администратору.\n"
+        "Мы свяжемся с вами после проверки платежа."
     )
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
