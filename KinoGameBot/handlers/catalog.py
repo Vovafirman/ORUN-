@@ -303,15 +303,11 @@ async def buy_now(callback_query: types.CallbackQuery, user_state):
 async def back_to_category(callback_query: types.CallbackQuery):
     """Return to category view"""
     await callback_query.answer()
-    
+
     category = callback_query.data.replace('back_to_category_', '')
-    await show_category(types.CallbackQuery(
-        id=callback_query.id,
-        from_user=callback_query.from_user,
-        chat_instance=callback_query.chat_instance,
-        data=f"category_{category}",
-        message=callback_query.message
-    ))
+    # Переиспользуем тот же callback, подменяя data
+    callback_query.data = f"category_{category}"
+    await show_category(callback_query)
 
 async def handle_delivery_address(message: types.Message, user_state):
     """Handle delivery address input"""
@@ -390,10 +386,10 @@ async def confirm_order(callback_query: types.CallbackQuery, user_state):
     
     # Show payment instructions
     text = (
-        f"✅ **ЗАКАЗ #{order_id} СОЗДАН!**\n\n"
+        f"✅ **ЗАКАЗ #{order_id} СОЗДАН, брат!**\n\n"
         f"💳 **Для оплаты переведите {product['price']} ₽ на карту:**\n"
         f"5536 9138 1234 5678\n\n"
-        f"📱 После оплаты нажмите кнопку ниже:"
+        "После оплаты жми кнопку ниже, не тяни!"
     )
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
